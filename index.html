@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>内容加载中...</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        
+        .loading-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f8f9fa;
+        }
+        
+        .loader {
+            border: 5px solid rgba(52, 152, 219, 0.3);
+            border-radius: 50%;
+            border-top: 5px solid #3498db;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            color: #333;
+            font-size: 18px;
+        }
+        
+        .error-container {
+            padding: 20px;
+            text-align: center;
+            max-width: 600px;
+            margin: 50px auto;
+        }
+        
+        #contentFrame {
+            display: none;
+            width: 100%;
+            height: 100vh;
+            border: none;
+        }
+    </style>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; frame-src *; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'">
+</head>
+<body>
+    <div id="loadingContainer" class="loading-container">
+        <div class="loader"></div>
+        <div class="loading-text">网页加载中，请稍后...</div>
+    </div>
+    
+    <iframe id="contentFrame" style="width: 100%; height: 100vh; border: none; display: none;"></iframe>
+    <div id="errorContainer" class="error-container" style="display: none;"></div>
+
+    <script>
+        function getQueryParam(param) {
+            try {
+                return new URLSearchParams(window.location.search).get(param);
+            } catch (e) {
+                console.error('解析URL参数失败:', e);
+                return null;
+            }
+        }
+
+        function isValidUrl(url) {
+            try {
+                const parsedUrl = new URL(url);
+                return ['http:', 'https:'].includes(parsedUrl.protocol);
+            } catch (e) {
+                return false;
+            }
+        }
+
+        function showError(message, details = '') {
+            document.getElementById('loadingContainer').style.display = 'none';
+            const errorContainer = document.getElementById('errorContainer');
+            errorContainer.innerHTML = `
+                <h1>加载失败</h1>
+                <p class="error-message">${message}</p>
+                ${details ? `<p class="error-details">${details}</p>` : ''}
+                <p>请检查链接是否正确或稍后再试。</p>
+            `;
+            errorContainer.style.display = 'block';
+        }
+
+        function loadIframeContent() {
+            try {
+                const base64Url = getQueryParam('u');
+                
+                if (!base64Url) {
+                    throw new Error('缺少必要的URL参数');
+                }
+                
+                const decodedUrl = atob(base64Url);
+                
+                if (!isValidUrl(decodedUrl)) {
+                    throw new Error('无效或不安全的URL');
+                }
+                
+                const iframe = document.getElementById('contentFrame');
+                
+                iframe.src = decodedUrl;
+                iframe.onload = () => {
+                    document.getElementById('loadingContainer').style.display = 'none';
+                    iframe.style.display = 'block';
+                };
+                
+            } catch (error) {
+                console.error('加载内容时出错:', error);
+                showError('加载失败', error.message);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadIframeContent);
+    </script>
+</body>
+</html>
