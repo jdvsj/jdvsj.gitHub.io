@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>内容加载中...</title>
+    <title>加载中...</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         
@@ -13,7 +13,7 @@
             justify-content: center;
             align-items: center;
             height: 100vh;
-            background-color: #f8f9fa;
+            background: #f8f9fa;
         }
         
         .loader {
@@ -26,21 +26,22 @@
             margin-bottom: 20px;
         }
         
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
-        .loading-text {
-            color: #333;
-            font-size: 18px;
-        }
+        .loading-text { color: #333; font-size: 18px; }
         
         .error-container {
-            padding: 20px;
-            text-align: center;
-            max-width: 600px;
-            margin: 50px auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: #f8f9fa;
+        }
+        
+        .forbidden-text {
+            color: #333;
+            font-size: 24px;
+            font-weight: bold;
         }
         
         #contentFrame {
@@ -58,69 +59,73 @@
         <div class="loading-text">网页加载中，请稍后...</div>
     </div>
     
-    <iframe id="contentFrame" style="width: 100%; height: 100vh; border: none; display: none;"></iframe>
+    <iframe id="contentFrame"></iframe>
     <div id="errorContainer" class="error-container" style="display: none;"></div>
 
     <script>
-        function getQueryParam(param) {
-            try {
-                return new URLSearchParams(window.location.search).get(param);
-            } catch (e) {
-                console.error('解析URL参数失败:', e);
-                return null;
-            }
-        }
+        // 白名单：支持两种格式
+        // 1. 域名（如https://www.example.com → 允许该域名下所有页面）
+        // 2. 带路径（如https://www.example.com/blog → 仅允许该路径下的页面）
+        const WHITELIST = [
+            "http://fufeiaa.9i0.fun",         
+            "https://www.baidu.com",           
+            "https://github.com/username/repo" 
+        ];
 
-        function isValidUrl(url) {
+        const loading = document.getElementById('loadingContainer');
+        const iframe = document.getElementById('contentFrame');
+        const error = document.getElementById('errorContainer');
+
+        const getQuery = (param) => {
+            try { return new URLSearchParams(location.search).get(param); }
+            catch (e) { return null; }
+        };
+
+        const isInWhitelist = (url) => {
             try {
                 const parsedUrl = new URL(url);
-                return ['http:', 'https:'].includes(parsedUrl.protocol);
+                return WHITELIST.some(white => {
+                    return parsedUrl.origin === white || url.startsWith(white);
+                });
             } catch (e) {
                 return false;
             }
-        }
+        };
 
-        function showError(message, details = '') {
-            document.getElementById('loadingContainer').style.display = 'none';
-            const errorContainer = document.getElementById('errorContainer');
-            errorContainer.innerHTML = `
-                <h1>加载失败</h1>
-                <p class="error-message">${message}</p>
-                ${details ? `<p class="error-details">${details}</p>` : ''}
-                <p>请检查链接是否正确或稍后再试。</p>
-            `;
-            errorContainer.style.display = 'block';
-        }
-
-        function loadIframeContent() {
-            try {
-                const base64Url = getQueryParam('u');
-                
-                if (!base64Url) {
-                    throw new Error('缺少必要的URL参数');
-                }
-                
-                const decodedUrl = atob(base64Url);
-                
-                if (!isValidUrl(decodedUrl)) {
-                    throw new Error('无效或不安全的URL');
-                }
-                
-                const iframe = document.getElementById('contentFrame');
-                
-                iframe.src = decodedUrl;
-                iframe.onload = () => {
-                    document.getElementById('loadingContainer').style.display = 'none';
-                    iframe.style.display = 'block';
-                };
-                
-            } catch (error) {
-                console.error('加载内容时出错:', error);
-                showError('加载失败', error.message);
+        const showError = (msg, isForbidden = false) => {
+            loading.style.display = 'none';
+            if (isForbidden) {
+                error.innerHTML = `<div class="forbidden-text">禁止访问</div>`;
+            } else {
+                error.innerHTML = `<h1>加载失败</h1><p>${msg}</p><p>请检查链接或稍后再试。</p>`;
             }
-        }
+            error.style.display = 'flex';
+        };
 
-        document.addEventListener('DOMContentLoaded', loadIframeContent);
+        (() => {
+            const base64Url = getQuery('u');
+            if (!base64Url) return showError('缺少参数 u');
+
+            const decodedUrl = atob(base64Url);
+            if (!/^https?:\/\//.test(decodedUrl)) {
+                return showError('无效的URL（需以http/https开头）');
+            }
+
+            if (!isInWhitelist(decodedUrl)) {
+                return showError('', true);
+            }
+
+            iframe.src = decodedUrl;
+            iframe.onload = () => {
+                loading.style.display = 'none';
+                iframe.style.display = 'block';
+            };
+            setTimeout(() => {
+                if (loading.style.display !== 'none') {
+                    showError('加载超时（超过60秒）');
+                }
+            }, 60000);
+        })();
     </script>
 </body>
 </html>
